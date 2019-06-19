@@ -101,7 +101,7 @@ class QuantizeEnv:
 
             centroid_label_dict = quantize_model(self.model, self.quantizable_idx, self.strategy,
                                                  mode='cpu', quantize_bias=False, centroids_init='k-means++',
-                                                 is_pruned=self.is_model_pruned, max_iter=3, free_high_bit=True)
+                                                 is_pruned=self.is_model_pruned, max_iter=3)
             if self.finetune_flag:
                 train_acc = self._kmeans_finetune(self.train_loader, self.model, self.quantizable_idx,
                                                   centroid_label_dict, epochs=self.finetune_epoch, verbose=False)
