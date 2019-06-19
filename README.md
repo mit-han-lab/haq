@@ -7,6 +7,16 @@ This repo contains PyTorch implementation for paper [HAQ: Hardware-Aware Automat
 
 ![overview](https://hanlab.mit.edu/projects/haq/images/overview.png)
 
+```
+@InProceedings{Wang_2019_CVPR,
+author = {Wang, Kuan and Liu, Zhijian and Lin, Yujun and Lin, Ji and Han, Song},
+title = {HAQ: Hardware-Aware Automated Quantization With Mixed Precision},
+booktitle = {The IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+month = {June},
+year = {2019}
+}
+```
+
 Other papers related to automated model design:
 - Amc: Automl for model compression and acceleration on mobile devices ([ECCV2018](https://arxiv.org/abs/1802.03494))
 
