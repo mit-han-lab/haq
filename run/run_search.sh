@@ -1,5 +1,5 @@
 python -W ignore rl_quantize.py     \
- --arch mobilenet_v3                \
+ --arch resnet50                \
  --dataset imagenet                 \
  --suffix ratio010                  \
  --preserve_ratio 0.1               \
