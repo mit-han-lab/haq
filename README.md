@@ -8,19 +8,18 @@ This repo contains PyTorch implementation for paper [HAQ: Hardware-Aware Automat
 ![overview](https://hanlab.mit.edu/projects/haq/images/overview.png)
 
 ```
-@InProceedings{Wang_2019_CVPR,
+@inproceedings{haq,
 author = {Wang, Kuan and Liu, Zhijian and Lin, Yujun and Lin, Ji and Han, Song},
 title = {HAQ: Hardware-Aware Automated Quantization With Mixed Precision},
-booktitle = {The IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-month = {June},
+booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
 year = {2019}
 }
 ```
 
 Other papers related to automated model design:
-- Amc: Automl for model compression and acceleration on mobile devices ([ECCV2018](https://arxiv.org/abs/1802.03494))
+- AMC: AutoML for Model Compression and Acceleration on Mobile Devices ([ECCV 2018](https://arxiv.org/abs/1802.03494))
 
-- ProxylessNAS: Direct Neural Architecture Search on Target Task and Hardware ([ICLR2019](https://arxiv.org/abs/1812.00332))
+- ProxylessNAS: Direct Neural Architecture Search on Target Task and Hardware ([ICLR 2019](https://arxiv.org/abs/1812.00332))
 
 ## Dependencies
 We evaluate this code with Pytorch 1.1 (cuda10) and torchvision 0.3.0, you can install pytorch with conda:
