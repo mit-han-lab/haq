@@ -92,5 +92,5 @@ bash run/run_eval.sh
 
 | Models                   | preserve ratio | Top1 Acc (%) | Top5 Acc (%) |
 | ------------------------ | -------------- | ------------ | ------------ |
-| resnet50 (original)   |       1.0      |     76.15    |    92.87     |
-| resnet50 (compress10x)|       0.1      |     75.48    |    92.42     |
+| resnet50 (original)    |       1.0      |     76.15    |    92.87     |
+| resnet50 (10x compress)|       0.1      |     75.48    |    92.42     |
