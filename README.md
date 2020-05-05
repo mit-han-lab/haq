@@ -113,8 +113,9 @@ cd ../mobilenetv2/
 wget https://hanlab.mit.edu/files/haq/qmobilenetv2_0.6_71.23.pth.tar
 cd ../..
 ```
-(If the server is down, you can download the pretrained model from google drive: [qmobilenetv2_0.6_71.23.pth.tar](https://drive.google.com/open?id=1oW1Jq17LIwcOckOzZPWDlKEhGWkZ3F_r))
-You evaluate the K-Means quantized model like this:
+(If the server is down, you can download the pretrained model from google drive: [qmobilenetv2_0.6_71.23.pth.tar](https://drive.google.com/open?id=1oW1Jq17LIwcOckOzZPWDlKEhGWkZ3F_r)) 
+
+You can evaluate the K-Means quantized model like this:
 ```
 # evaluate K-Means quantization
 bash run/run_kmeans_quantize_eval.sh
@@ -124,7 +125,7 @@ bash run/run_kmeans_quantize_eval.sh
 | resnet50 (original)      |       1.0      |     76.15    |    92.87     |
 | resnet50 (10x compress)  |       0.1      |     75.48    |    92.42     |
 
-You evaluate the linear quantized model like this:
+You can evaluate the linear quantized model like this:
 ```
 # evaluate linear quantization
 bash run/run_linear_quantize_eval.sh
