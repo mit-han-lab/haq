@@ -32,6 +32,8 @@ And you can use the following command to set up the environment:
 # install packages and download the pretrained model
 bash run/setup.sh
 ```
+(If the server is down, you can download the pretrained model from google drive: [mobilenetv2-150.pth.tar](https://drive.google.com/open?id=1fZ1gNSzSZTQfJ0dL-bNYULNvZJxp_Y53))
+
 Current code base is tested under following environment:
 1. Python         3.7.3
 2. PyTorch        1.1
@@ -111,6 +113,7 @@ cd ../mobilenetv2/
 wget https://hanlab.mit.edu/files/haq/qmobilenetv2_0.6_71.23.pth.tar
 cd ../..
 ```
+(If the server is down, you can download the pretrained model from google drive: [qmobilenetv2_0.6_71.23.pth.tar](https://drive.google.com/open?id=1oW1Jq17LIwcOckOzZPWDlKEhGWkZ3F_r))
 You evaluate the K-Means quantized model like this:
 ```
 # evaluate K-Means quantization
