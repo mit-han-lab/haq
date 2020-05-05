@@ -120,6 +120,7 @@ bash run/run_kmeans_quantize_eval.sh
 | ------------------------ | -------------- | ------------ | ------------ |
 | resnet50 (original)      |       1.0      |     76.15    |    92.87     |
 | resnet50 (10x compress)  |       0.1      |     75.48    |    92.42     |
+
 You evaluate the linear quantized model like this:
 ```
 # evaluate linear quantization
@@ -130,3 +131,4 @@ bash run/run_linear_quantize_eval.sh
 | ------------------------  | -------------- | ------------ | ------------ |
 | mobilenetv2 (original)    |       1.0      |     72.05    |    90.49     |
 | mobilenetv2 (0.6x latency)|       0.6      |     71.23    |    90.00     |
+
