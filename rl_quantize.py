@@ -8,8 +8,8 @@ import argparse
 import numpy as np
 from copy import deepcopy
 
-from lib.utils.utils import prYellow
 from lib.env.quantize_env import QuantizeEnv
+from lib.env.linear_quantize_env import LinearQuantizeEnv
 from lib.rl.ddpg import DDPG
 from tensorboardX import SummaryWriter
 
@@ -35,7 +35,7 @@ model_names = default_model_names + customized_models_names
 print('support models: ', model_names)
 
 
-def train(num_episode, agent, env, output, debug=False):
+def train(num_episode, agent, env, output, linear_quantization=False, debug=False):
     # best record
     best_reward = -math.inf
     best_policy = []
@@ -74,14 +74,26 @@ def train(num_episode, agent, env, output, debug=False):
         observation = deepcopy(observation2)
 
         if done:  # end of episode
-            if debug:
-                print('#{}: episode_reward:{:.4f} acc: {:.4f}, weight: {:.4f} MB'.format(episode, episode_reward,
+
+            if linear_quantization:
+                if debug:
+                    print('#{}: episode_reward:{:.4f} acc: {:.4f}, cost: {:.4f}'.format(episode, episode_reward,
+                                                                                             info['accuracy'],
+                                                                                             info['cost'] * 1. / 8e6))
+                text_writer.write(
+                    '#{}: episode_reward:{:.4f} acc: {:.4f}, cost: {:.4f}\n'.format(episode, episode_reward,
+                                                                                         info['accuracy'],
+                                                                                         info['cost'] * 1. / 8e6))
+            else:
+                if debug:
+                    print('#{}: episode_reward:{:.4f} acc: {:.4f}, weight: {:.4f} MB'.format(episode, episode_reward,
+                                                                                             info['accuracy'],
+                                                                                             info['w_ratio'] * 1. / 8e6))
+                text_writer.write(
+                    '#{}: episode_reward:{:.4f} acc: {:.4f}, weight: {:.4f} MB\n'.format(episode, episode_reward,
                                                                                          info['accuracy'],
                                                                                          info['w_ratio'] * 1. / 8e6))
-            text_writer.write(
-                '#{}: episode_reward:{:.4f} acc: {:.4f}, weight: {:.4f} MB\n'.format(episode, episode_reward,
-                                                                                     info['accuracy'],
-                                                                                     info['w_ratio'] * 1. / 8e6))
+
             final_reward = T[-1][0]
             # agent observe and update policy
             for i, (r_t, s_t, s_t1, a_t, done) in enumerate(T):
@@ -113,15 +125,22 @@ def train(num_episode, agent, env, output, debug=False):
             tfwriter.add_scalar('reward/last', final_reward, episode)
             tfwriter.add_scalar('reward/best', best_reward, episode)
             tfwriter.add_scalar('info/accuracy', info['accuracy'], episode)
-            tfwriter.add_scalar('info/w_ratio', info['w_ratio'], episode)
             tfwriter.add_text('info/best_policy', str(best_policy), episode)
             tfwriter.add_text('info/current_policy', str(env.strategy), episode)
             tfwriter.add_scalar('value_loss', value_loss, episode)
             tfwriter.add_scalar('policy_loss', policy_loss, episode)
             tfwriter.add_scalar('delta', delta, episode)
-            # record the preserve rate for each layer
-            for i, preserve_rate in enumerate(env.strategy):
-                tfwriter.add_scalar('preserve_rate_w/{}'.format(i), preserve_rate, episode)
+            if linear_quantization:
+                tfwriter.add_scalar('info/coat_ratio', info['cost_ratio'], episode)
+                # record the preserve rate for each layer
+                for i, preserve_rate in enumerate(env.strategy):
+                    tfwriter.add_scalar('preserve_rate_w/{}'.format(i), preserve_rate[0], episode)
+                    tfwriter.add_scalar('preserve_rate_a/{}'.format(i), preserve_rate[1], episode)
+            else:
+                tfwriter.add_scalar('info/w_ratio', info['w_ratio'], episode)
+                # record the preserve rate for each layer
+                for i, preserve_rate in enumerate(env.strategy):
+                    tfwriter.add_scalar('preserve_rate_w/{}'.format(i), preserve_rate, episode)
 
             text_writer.write('best reward: {}\n'.format(best_reward))
             text_writer.write('best policy: {}\n'.format(best_policy))
@@ -140,6 +159,7 @@ if __name__ == "__main__":
     parser.add_argument('--min_bit', default=1, type=float, help='minimum bit to use')
     parser.add_argument('--max_bit', default=8, type=float, help='maximum bit to use')
     parser.add_argument('--float_bit', default=32, type=int, help='the bit of full precision float')
+    parser.add_argument('--linear_quantization', dest='linear_quantization', action='store_true')
     parser.add_argument('--is_pruned', dest='is_pruned', action='store_true')
     # ddpg
     parser.add_argument('--hidden1', default=300, type=int, help='hidden num of first fully connect layer')
@@ -202,19 +222,32 @@ if __name__ == "__main__":
         torch.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
 
-    model = models.__dict__[args.arch](pretrained=True)
+    if args.dataset == 'imagenet':
+        num_classes = 1000
+    elif args.dataset == 'imagenet100':
+        num_classes = 100
+    else:
+        raise NotImplementedError
+    model = models.__dict__[args.arch](pretrained=True, num_classes=num_classes)
     if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
         model.features = torch.nn.DataParallel(model.features)
         model.cuda()
     else:
         model = torch.nn.DataParallel(model).cuda()
-    pretrained_model = model.state_dict()
+    pretrained_model = deepcopy(model.state_dict())
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
     cudnn.benchmark = True
 
-    env = QuantizeEnv(model, pretrained_model, args.dataset, args.dataset_root,
-                      compress_ratio=args.preserve_ratio, n_data_worker=args.n_worker,
-                      batch_size=args.data_bsize, args=args, float_bit=args.float_bit, is_model_pruned=args.is_pruned)
+    if args.linear_quantization:
+        env = LinearQuantizeEnv(model, pretrained_model, args.dataset, args.dataset_root,
+                                compress_ratio=args.preserve_ratio, n_data_worker=args.n_worker,
+                                batch_size=args.data_bsize, args=args, float_bit=args.float_bit,
+                                is_model_pruned=args.is_pruned)
+    else:
+        env = QuantizeEnv(model, pretrained_model, args.dataset, args.dataset_root,
+                          compress_ratio=args.preserve_ratio, n_data_worker=args.n_worker,
+                          batch_size=args.data_bsize, args=args, float_bit=args.float_bit,
+                          is_model_pruned=args.is_pruned)
 
     nb_states = env.layer_embedding.shape[1]
     nb_actions = 1  # actions for weight and activation quantization
@@ -222,7 +255,7 @@ if __name__ == "__main__":
     print('** Actual replay buffer size: {}'.format(args.rmsize))
     agent = DDPG(nb_states, nb_actions, args)
 
-    best_policy, best_reward = train(args.train_episode, agent, env, args.output, debug=args.debug)
+    best_policy, best_reward = train(args.train_episode, agent, env, args.output, linear_quantization=args.linear_quantization, debug=args.debug)
     print('best_reward: ', best_reward)
     print('best_policy: ', best_policy)
 

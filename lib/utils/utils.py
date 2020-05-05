@@ -5,6 +5,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from lib.utils.quantize_utils import QConv2d, QLinear
 
 
 class AverageMeter(object):
@@ -169,7 +170,7 @@ def measure_layer(layer, x):
     type_name = get_layer_info(layer)
 
     # ops_conv
-    if type_name in ['Conv2d']:
+    if type_name in ['Conv2d', 'QConv2d']:
         out_h = int((x.size()[2] + 2 * layer.padding[0] - layer.kernel_size[0]) /
                     layer.stride[0] + 1)
         out_w = int((x.size()[3] + 2 * layer.padding[1] - layer.kernel_size[1]) /
@@ -203,7 +204,7 @@ def measure_layer(layer, x):
         delta_params = get_layer_param(layer)
 
     # ops_linear
-    elif type_name in ['Linear']:
+    elif type_name in ['Linear', 'QLinear']:
         weight_ops = layer.weight.numel() * multi_add
         if layer.bias is not None:
             bias_ops = layer.bias.numel()
@@ -266,3 +267,4 @@ def measure_model(model, H, W):
     restore_forward(model)
 
     return count_ops, count_params
+

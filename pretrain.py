@@ -17,10 +17,17 @@ import torch.optim as optim
 import torchvision.models as models
 import models as customized_models
 
+try:
+    from torch.utils.tensorboard import SummaryWriter
+    print('use tensorboard in pytorch')
+except:
+    print('use tensorboardX')
+    from tensorboardX import SummaryWriter
+
 from lib.utils.utils import Logger, AverageMeter, accuracy
 from lib.utils.data_utils import get_dataset
 from progress.bar import Bar
-from lib.utils.quantize_utils import quantize_model, kmeans_update_model, QConv2d, QLinear, calibrate
+from lib.utils.quantize_utils import quantize_model, kmeans_update_model, QConv2d, QLinear, calibrate, dorefa, set_fix_weight
 
 
 # Models
@@ -66,8 +73,8 @@ parser.add_argument('--schedule', type=int, nargs='+', default=[31, 61, 91],
 parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
-parser.add_argument('--weight-decay', '--wd', default=1e-5, type=float,
-                    metavar='W', help='weight decay (default: 1e-5)')
+parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
+                    metavar='W', help='weight decay (default: 1e-4)')
 # Checkpoints
 parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metavar='PATH',
                     help='path to save checkpoint (default: checkpoint)')
@@ -76,10 +83,6 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
 parser.add_argument('--pretrained', action='store_true',
                     help='use pretrained model')
 # Quantization
-parser.add_argument('--linear_quantization', dest='linear_quantization', action='store_true',
-                    help='quantize both weight and activation)')
-parser.add_argument('--free_high_bit', default=True, type=bool,
-                    help='free the high bit (>6)')
 parser.add_argument('--half', action='store_true',
                     help='half')
 parser.add_argument('--half_type', default='O1', type=str,
@@ -167,9 +170,6 @@ def train(train_loader, model, criterion, optimizer, epoch, use_cuda):
             loss.backward()
         # do SGD step
         optimizer.step()
-
-        if not args.linear_quantization:
-            kmeans_update_model(model, quantizable_idx, centroid_label_dict, free_high_bit=args.free_high_bit)
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -286,7 +286,7 @@ if __name__ == '__main__':
     train_loader, val_loader, n_class = get_dataset(dataset_name=args.data_name, batch_size=args.train_batch,
                                                     n_worker=args.workers, data_root=args.data)
 
-    model = models.__dict__[args.arch](pretrained=args.pretrained)
+    model = models.__dict__[args.arch](pretrained=args.pretrained, num_classes=n_class)
     print("=> creating model '{}'".format(args.arch), ' pretrained is ', args.pretrained)
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
     cudnn.benchmark = True
@@ -303,50 +303,6 @@ if __name__ == '__main__':
             raise ImportError("Please install apex from https://github.com/NVIDIA/apex")
         model.cuda()
         model, optimizer = apex.amp.initialize(model, optimizer, opt_level=args.half_type)
-
-    if args.linear_quantization:
-        quantizable_idx = []
-        for i, m in enumerate(model.modules()):
-            if type(m) in [QConv2d, QLinear]:
-                quantizable_idx.append(i)
-        # print(model)
-        print(quantizable_idx)
-
-        if 'mobilenetv2' in args.arch:
-            strategy = [[8, -1], [7, 7], [5, 6], [4, 6], [5, 6], [5, 7], [5, 6], [7, 4], [4, 6], [4, 6], [7, 7], [5, 6], [4, 6], [7, 3], [5, 7], [4, 7], [7, 3], [5, 7], [4, 7], [7, 7], [4, 7], [4, 7], [6, 4], [6, 7], [4, 7], [7, 4], [6, 7], [5, 7], [7, 4], [6, 7], [5, 7], [7, 4], [6, 7], [6, 7], [6, 4], [5, 7], [6, 7], [6, 4], [5, 7], [6, 7], [7, 7], [4, 7], [7, 7], [7, 7], [4, 7], [7, 7], [7, 7], [4, 7], [7, 7], [7, 7], [4, 7], [7, 7], [8, 8]]
-        else:
-            raise NotImplementedError
-
-        print(strategy)
-        quantize_layer_bit_dict = {n: b for n, b in zip(quantizable_idx, strategy)}
-        for i, layer in enumerate(model.modules()):
-            if i not in quantizable_idx:
-                continue
-            else:
-                layer.w_bit = quantize_layer_bit_dict[i][0]
-                layer.a_bit = quantize_layer_bit_dict[i][1]
-        model = model.cuda()
-        model = calibrate(model, train_loader)
-    else:
-        quantizable_idx = []
-        for i, m in enumerate(model.modules()):
-            if type(m) in [nn.Conv2d, nn.Linear]:
-                quantizable_idx.append(i)
-        print(quantizable_idx)
-
-        if args.arch.startswith('resnet50'):
-            # resnet50 ratio 10%
-            strategy = [6, 6, 6, 6, 5, 5, 6, 5, 5, 6, 5, 5, 6, 5, 5, 5, 5, 5, 4, 5, 4, 4, 5, 4, 4, 4, 3, 4,
-                        4, 4, 3, 4, 4, 3, 4, 4, 3, 4, 4, 3, 4, 4, 3, 4, 3, 3, 2, 3, 2, 3, 3, 2, 3, 4]
-        else:
-            # you can put your own strategy here
-            raise NotImplementedError
-        print('strategy for ' + args.arch + ': ', strategy)
-
-        assert len(quantizable_idx) == len(strategy), \
-            'You should provide the same number of bit setting as layer list for weight quantization!'
-        centroid_label_dict = quantize_model(model, quantizable_idx, strategy, mode='cpu', quantize_bias=False,
-                                             centroids_init='k-means++', max_iter=50)
 
     if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
         model.features = torch.nn.DataParallel(model.features)
@@ -376,6 +332,10 @@ if __name__ == '__main__':
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
         logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
 
+    tf_writer = SummaryWriter(logdir=os.path.join(args.checkpoint, 'logs'))
+    # tf_writer = SummaryWriter(log_dir=os.path.join(args.checkpoint, 'logs'))
+    print('save the checkpoint to ', args.checkpoint)
+
     if args.evaluate:
         print('\nEvaluation only')
         test_loss, test_acc = test(val_loader, model, criterion, start_epoch, use_cuda)
@@ -385,12 +345,6 @@ if __name__ == '__main__':
     # Train and val
     for epoch in range(start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch)
-        # if args.free_high_bit and args.epochs - epoch < args.epochs // 10:
-        if args.free_high_bit and epoch == args.epochs - 1 and (not args.linear_quantization):
-            # quantize the high bit layers only at last epoch to save time
-            centroid_label_dict = quantize_model(model, quantizable_idx, strategy, mode='cpu', quantize_bias=False,
-                                                 centroids_init='k-means++', max_iter=50, free_high_bit=False)
-
         print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, lr_current))
 
         train_loss, train_acc = train(train_loader, model, criterion, optimizer, epoch, use_cuda)
@@ -409,6 +363,19 @@ if __name__ == '__main__':
                 'best_acc': best_acc,
                 'optimizer' : optimizer.state_dict(),
             }, is_best, checkpoint=args.checkpoint)
+
+        # ============ TensorBoard logging ============#
+        # (1) Log the scalar values
+        info = {
+            'train_loss': train_loss,
+            'train_accuracy': train_acc,
+            'test_loss': test_loss,
+            'test_accuracy': test_acc,
+            'learning_rate': lr_current
+        }
+
+        for tag, value in info.items():
+            tf_writer.add_scalar(tag, value, epoch)
 
     logger.close()
 
