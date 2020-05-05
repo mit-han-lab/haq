@@ -10,7 +10,7 @@ python -W ignore finetune.py     \
  --wd 4e-5                       \
  --workers 32                    \
  --pretrained                    \
- --linear_quantize               \
+ --linear_quantization           \
 # --eval                         \
 
 
