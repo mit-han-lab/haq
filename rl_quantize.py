@@ -153,8 +153,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--suffix', default=None, type=str, help='suffix to help you remember what experiment you ran')
     # env
-    parser.add_argument('--dataset', default='imagenet', type=str, help='dataset to use)')
-    parser.add_argument('--dataset_root', default='data/imagenet', type=str, help='path to dataset)')
+    parser.add_argument('--dataset', default='imagenet', type=str, help='dataset to use')
+    parser.add_argument('--dataset_root', default='data/imagenet', type=str, help='path to dataset')
     parser.add_argument('--preserve_ratio', default=0.1, type=float, help='preserve ratio of the model size')
     parser.add_argument('--min_bit', default=1, type=float, help='minimum bit to use')
     parser.add_argument('--max_bit', default=8, type=float, help='maximum bit to use')
